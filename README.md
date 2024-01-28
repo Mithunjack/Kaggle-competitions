@@ -43,6 +43,4 @@ I'm committed to learning and sharing knowledge throughout this journey. Each su
 - **Learning**: Gain insights into various data science problems and solutions.
 - **Sharing**: Join me in discussing and improving upon these solutions.
 
----
 
-*Note: Replace placeholders like `[Your LinkedIn Profile]` with your actual contact information.*
