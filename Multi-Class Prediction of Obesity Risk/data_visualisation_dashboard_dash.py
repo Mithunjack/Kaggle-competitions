@@ -4,16 +4,20 @@ import pandas as pd
 pd.DataFrame.iteritems = pd.DataFrame.items
 from copy import deepcopy
 import plotly.express as px
-from sklearn.ensemble import RandomForestClassifier
-from sklearn.preprocessing import OneHotEncoder
+from sklearn.preprocessing import LabelEncoder, OneHotEncoder
+from sklearn.feature_selection import mutual_info_classif
+import numpy as np
+from copy import deepcopy
+from sklearn.preprocessing import LabelEncoder
+
 
 # Initialise the app
 app = Dash(__name__, external_stylesheets=[dbc.themes.FLATLY])
 
 # Load the dataset
 df_train = pd.read_csv('~/Schreibtisch/Data/Kaggle/playground-series-s4e2/train.csv')
-# import a plotly dataset
-#df_train = px.data.tips()
+# i also want to find out how important a column for the prediction is, so i want to get the correlation of all column, But the categorial need to be one hot encoded first
+
 
 # Define categorical columns
 categorical_columns = df_train.select_dtypes(include=['object']).columns.tolist()
@@ -22,6 +26,36 @@ categorical_columns = df_train.select_dtypes(include=['object']).columns.tolist(
 numerical_columns = df_train.select_dtypes(include=['int64', 'float64']).columns.tolist()
 
 target_variable = 'NObeyesdad'
+
+#---------------------------- Data preparation for correlatin ------------------------------
+# Splitting the dataset into features and target variable
+X = df_train.drop(target_variable, axis=1)
+y = df_train[target_variable]
+
+# Convert categorical features using one-hot encoding
+labelencoder = LabelEncoder()
+
+def mutual_information(df, target_variable):
+    df_deepcopy = deepcopy(df)
+    # make categorial columns from numerical columns with pandas cut
+    for col in df_deepcopy.columns:
+        if df_deepcopy[col].dtype == 'float64' or df_deepcopy[col].dtype == 'int64':
+            number_of_unique_values = len(df_deepcopy[col].unique())
+            column = pd.cut(df_deepcopy[col], 20)
+            df_deepcopy[col] = labelencoder.fit_transform(column)
+    # now label encode all categorial columns
+    for col in df_deepcopy.columns:
+        if df_deepcopy[col].dtype == 'object':
+            df_deepcopy[col] = labelencoder.fit_transform(df_deepcopy[col])
+    # now we can calculate the mutual information
+    mi = mutual_info_classif(df_deepcopy.drop(columns = target_variable), df_deepcopy[target_variable])
+    columns = df_deepcopy.drop(columns =target_variable).columns
+    # sort the columns by the mutual information
+    mi, columns = zip(*sorted(zip(mi, columns)))
+    return columns, mi, df_deepcopy
+
+columns, mi, df_deepcopy = mutual_information(df_train, target_variable)
+# -----------------------------End-------------------------------------
 
 # Define the layout of the dashboard
 app.layout = dbc.Container([
@@ -89,12 +123,17 @@ app.layout = dbc.Container([
             dcc.Graph(id='2d_plot', style={'height': '800px'})
         ])
     ]),
-    # Parallel coordinates plot for the train dataset categorical columns
     dbc.Row([
-        dcc.Markdown('### Parallel coordinates plot: Plot the categorial columns')
+        dcc.Markdown('### Mutual Information'),
+        dcc.Markdown('The mutual information of a column with the target variable is a measure of how much information the column provides about the target variable. The higher the mutual information, the more important the column is for predicting the target variable. The mutual information is calculated using the mutual_info_classif function from scikit-learn. The numerical variables were converted to caterogorial variables with a histogram with 30 bins. Changing the number of bins also changes the entropys a little bit. But the overall trend remains.')
     ]),
     dbc.Row([
-        dcc.Graph(figure=px.parallel_categories(df_train), style={'height': '800px'})
+        dcc.Graph(figure=px.bar(
+            x=columns,
+            y=mi,
+        ), style={'height': '800px'})
+
+    
     ])
 ])
 
